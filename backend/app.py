@@ -17,6 +17,8 @@ import pandas as pd
 import time
 from werkzeug.utils import secure_filename
 import warnings
+import base64
+import io
 from sklearn.exceptions import InconsistentVersionWarning
 
 app = Flask(__name__)
@@ -129,6 +131,29 @@ IDEAL_SKILLS_DATA = {
     "Graphics Designer": [2, 2, 1, 1, 1, 2, 3, 3, 1, 5, 2, 2, 3, 5, 2, 4, 6],
     "Default Career": [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
 }
+
+
+def image_to_base64_data_uri(file_storage):
+    try:
+        file_content = file_storage.read()
+        filename = file_storage.filename.lower()
+        if filename.endswith('.png'):
+            mime_type = 'image/png'
+        elif filename.endswith(('.jpg', '.jpeg')):
+            mime_type = 'image/jpeg'
+        elif filename.endswith('.gif'):
+            mime_type = 'image/gif'
+        elif filename.endswith('.webp'):
+            mime_type = 'image/webp'
+        else:
+            mime_type = 'image/jpeg'
+    
+        base64_encoded = base64.b64encode(file_content).decode('utf-8')
+        return f"data:{mime_type};base64,{base64_encoded}"
+    
+    except Exception as e:
+        print(f"Error converting image to base64: {e}")
+        return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 
 
 
@@ -624,11 +649,6 @@ def mock_interview():
 
     return jsonify({"error": "Invalid action"}), 400
 
-
-
-
-#  FOR PORTFOLIO GENERATION
-
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -637,25 +657,24 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
+
 @app.route('/generate-portfolio', methods=['POST'])
 @cross_origin()
 def generate_portfolio():
     try:
-        hero_image_url = None
-        about_image_url = None
+        hero_image_b64 = None
+        about_image_b64 = None
         resume_url = "#"
+        
         if 'heroImage' in request.files:
             file = request.files['heroImage']
             if file.filename != '':
-                filename = secure_filename(f"hero_{int(time.time())}_{file.filename}")
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                hero_image_url = f"http://localhost:5000/uploads/{filename}"
+                hero_image_b64 = image_to_base64_data_uri(file)
+                
         if 'aboutImage' in request.files:
             file = request.files['aboutImage']
             if file.filename != '':
-                filename = secure_filename(f"about_{int(time.time())}_{file.filename}")
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                about_image_url = f"http://localhost:5000/uploads/{filename}"
+                about_image_b64 = image_to_base64_data_uri(file)
 
         if 'resume' in request.files:
             file = request.files['resume']
@@ -681,17 +700,17 @@ def generate_portfolio():
         has_hero_image = user_data.get('hasHeroImage', True)
         has_about_image = user_data.get('hasAboutImage', True)
 
+        # Convert project images to base64
+        project_images_b64 = {}
         for i, proj in enumerate(projects):
             file_key = f'projectImage_{i}'
             if file_key in request.files:
                 p_file = request.files[file_key]
                 if p_file.filename != '':
-                    p_filename = secure_filename(f"proj_{i}_{int(time.time())}_{p_file.filename}")
-                    p_file.save(os.path.join(app.config['UPLOAD_FOLDER'], p_filename))
-                    projects[i]['image'] = f"http://localhost:5000/uploads/{p_filename}"
+                    project_images_b64[i] = image_to_base64_data_uri(p_file)
 
         def render_hero_image():
-            img_src = hero_image_url if hero_image_url else "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600&h=600&auto=format&fit=crop"
+            img_src = hero_image_b64 if hero_image_b64 else "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=600&h=600&auto=format&fit=crop"
             if not has_hero_image: return ""
             return f"""
             <div class="relative w-full max-w-lg mx-auto lg:mr-0">
@@ -704,7 +723,7 @@ def generate_portfolio():
             </div>
             """
         def render_about_image():
-            img_src = about_image_url if about_image_url else "https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=600&h=800&auto=format&fit=crop"
+            img_src = about_image_b64 if about_image_b64 else "https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=600&h=800&auto=format&fit=crop"
             if not has_about_image: return ""
             return f"""
             <div class="lg:w-1/2 mb-10 lg:mb-0">
@@ -765,8 +784,8 @@ def generate_portfolio():
             for i, proj in enumerate(projects):
                 title = proj.get('title', f'Project {i+1}')
                 desc = proj.get('desc', 'No description provided.')
-                link = proj.get('githubLink', '#') 
-                img_src = proj.get('image', f"https://source.unsplash.com/random/800x600/?tech,website&sig={i}")
+                link = proj.get('githubLink', '#')
+                img_src = project_images_b64.get(i, f"https://source.unsplash.com/random/800x600/?tech,website&sig={i}")
                 
                 html += f"""
                 <div class="bg-white rounded-2xl shadow-lg overflow-hidden hover:-translate-y-2 transition-all duration-300 group">

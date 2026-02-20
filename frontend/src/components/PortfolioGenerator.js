@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {FaMagic, FaArrowRight, FaArrowLeft} from 'react-icons/fa';
+import {FaMagic, FaArrowRight, FaArrowLeft, FaCheckCircle} from 'react-icons/fa';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { injectTheme } from './theme';
@@ -38,6 +38,18 @@ const PortfolioGenerator = () => {
   const hdc = (f, v) => setUserData(p => ({ ...p, contact: { ...p.contact, [f]: v } }));
   const himg = (e, field, idx = null) => {
     const file = e.target.files[0]; if (!file) return;
+    
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      alert('Please upload a valid image file (JPG, PNG, GIF, or WebP)');
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size should be less than 5MB');
+      return;
+    }
+    
     if (idx !== null) {
       const u = [...userData.projects]; u[idx].image = file;
       setUserData(p => ({ ...p, projects: u }));
@@ -48,22 +60,48 @@ const PortfolioGenerator = () => {
   const hproj  = (i, f, v) => { const u = [...userData.projects];  u[i][f] = v; setUserData(p => ({ ...p, projects: u })); };
 
   const handleGenerate = async () => {
+    if (!userData.name.trim()) {
+      alert('Please enter your name');
+      return;
+    }
+    if (!userData.role.trim()) {
+      alert('Please enter your role');
+      return;
+    }
+    
     setLoading(true);
     const fd = new FormData();
     const activeEdu = userData.education
       .filter(e => e.school.trim() !== '')
       .map(e => ({ degree: `${e.level} (${e.grade})`, institution: e.school, year: e.year }));
-    fd.append('userData', JSON.stringify({ ...userData, education: activeEdu, hasHeroImage: !!userData.heroImage, hasAboutImage: !!userData.aboutImage }));
+    
+    fd.append('userData', JSON.stringify({ 
+      ...userData, 
+      education: activeEdu, 
+      hasHeroImage: !!userData.heroImage, 
+      hasAboutImage: !!userData.aboutImage 
+    }));
+    
     if (userData.heroImage)  fd.append('heroImage', userData.heroImage);
     if (userData.aboutImage) fd.append('aboutImage', userData.aboutImage);
     if (userData.resumeFile) fd.append('resume', userData.resumeFile);
     userData.projects.forEach((p, i) => { if (p.image) fd.append(`projectImage_${i}`, p.image); });
+    
     try {
-      const res = await axios.post('http://localhost:5000/generate-portfolio', fd);
+      const res = await axios.post('http://localhost:5000/generate-portfolio', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       setGeneratedCode(res.data.html);
       setStep(5);
-    } catch {
-      alert('Generation failed. Check if backend is running on port 5000.');
+    } catch (error) {
+      console.error('Portfolio generation error:', error);
+      if (error.response) {
+        alert(`Generation failed: ${error.response.data.error || 'Server error'}`);
+      } else if (error.request) {
+        alert('Cannot connect to backend. Make sure Flask server is running on port 5000.');
+      } else {
+        alert('An error occurred. Please try again.');
+      }
     }
     setLoading(false);
   };
@@ -84,7 +122,7 @@ const PortfolioGenerator = () => {
         <div className="t-header">
           <div>
             <h1 className="t-title">Portfolio <span>Builder</span></h1>
-            <p className="t-subtitle">Fill in your details to generate a professional portfolio site.</p>
+            <p className="t-subtitle">Create a stunning portfolio in minutes</p>
           </div>
           <Link to="/dashboard" className="t-back"><FaArrowLeft size={12} /> Back to Dashboard</Link>
         </div>
@@ -104,10 +142,10 @@ const PortfolioGenerator = () => {
 
           {step === 1 && (
             <>
-              <div className="t-card-title"> General Info & Stats</div>
+              <div className="t-card-title">General Info & Stats</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                {inp('Full Name', userData.name, v => hd('name', v), 'text', 'e.g. Vaibhav Agarwal')}
-                {inp('Professional Role', userData.role, v => hd('role', v), 'text', 'e.g. Software Engineer')}
+                {inp('Full Name *', userData.name, v => hd('name', v), 'text', 'e.g. Vaibhav Agarwal')}
+                {inp('Professional Role *', userData.role, v => hd('role', v), 'text', 'e.g. Software Engineer')}
               </div>
               <div className="t-group">
                 <label className="t-label">Short Bio</label>
@@ -119,15 +157,46 @@ const PortfolioGenerator = () => {
                 {inp('Companies Worked', userData.companiesWorked, v => hd('companiesWorked', v), 'text', 'e.g. 2+')}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                {inp('Email', userData.contact.email, v => hdc('email', v), 'email')}
-                {inp('Phone', userData.contact.phone, v => hdc('phone', v))}
-                {inp('Location', userData.contact.location, v => hdc('location', v))}
+                {inp('Email', userData.contact.email, v => hdc('email', v), 'email', 'your.email@example.com')}
+                {inp('Phone', userData.contact.phone, v => hdc('phone', v), 'tel', '+1 234 567 8900')}
+                {inp('Location', userData.contact.location, v => hdc('location', v), 'text', 'New York, USA')}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                <div className="t-group"><label className="t-label">Hero Image</label><input className="t-input" type="file" onChange={e => himg(e, 'heroImage')} /></div>
-                <div className="t-group"><label className="t-label">About Image</label><input className="t-input" type="file" onChange={e => himg(e, 'aboutImage')} /></div>
-                <div className="t-group"><label className="t-label">Resume (PDF)</label><input className="t-input" type="file" accept=".pdf" onChange={e => hd('resumeFile', e.target.files[0])} /></div>
+              
+              <div style={{ 
+                padding: '1rem', 
+                background: 'rgba(0,229,200,.05)', 
+                border: '1px solid rgba(0,229,200,.2)',
+                borderRadius: '10px',
+                marginTop: '1rem'
+              }}>
+                <p style={{ 
+                  fontSize: '.85rem', 
+                  color: 'rgba(232,232,240,.7)',
+                  marginBottom: '.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '.5rem'
+                }}>
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                  <div className="t-group">
+                    <label className="t-label">Hero Image (JPG/PNG, max 5MB)</label>
+                    <input className="t-input" type="file" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" onChange={e => himg(e, 'heroImage')} />
+                    {userData.heroImage && <small style={{ color: '#00e5c8', fontSize: '.75rem' }}>✓ {userData.heroImage.name}</small>}
+                  </div>
+                  <div className="t-group">
+                    <label className="t-label">About Image (JPG/PNG, max 5MB)</label>
+                    <input className="t-input" type="file" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" onChange={e => himg(e, 'aboutImage')} />
+                    {userData.aboutImage && <small style={{ color: '#00e5c8', fontSize: '.75rem' }}>✓ {userData.aboutImage.name}</small>}
+                  </div>
+                  <div className="t-group">
+                    <label className="t-label">Resume (PDF, optional)</label>
+                    <input className="t-input" type="file" accept=".pdf" onChange={e => hd('resumeFile', e.target.files[0])} />
+                    {userData.resumeFile && <small style={{ color: '#00e5c8', fontSize: '.75rem' }}>✓ {userData.resumeFile.name}</small>}
+                  </div>
+                </div>
               </div>
+              
               <div style={{ textAlign: 'right', marginTop: '1rem' }}>
                 <button className="t-btn t-btn-primary" style={{ width: 'auto' }} onClick={() => setStep(2)}>
                   Next <FaArrowRight />
@@ -139,6 +208,9 @@ const PortfolioGenerator = () => {
           {step === 2 && (
             <>
               <div className="t-card-title">Education History</div>
+              <p style={{ color: 'rgba(232,232,240,.6)', fontSize: '.9rem', marginBottom: '1rem' }}>
+                Fill in your education details. Leave blank to skip any level.
+              </p>
               {userData.education.map((edu, i) => (
                 <div key={i} className="t-edu-row">
                   <span className="t-edu-level">{edu.level}</span>
@@ -157,6 +229,9 @@ const PortfolioGenerator = () => {
           {step === 3 && (
             <>
               <div className="t-card-title">Technical Skills</div>
+              <p style={{ color: 'rgba(232,232,240,.6)', fontSize: '.9rem', marginBottom: '1rem' }}>
+                Add your skills and rate your proficiency level.
+              </p>
               {userData.skills.map((s, i) => (
                 <div key={i} className="t-skill-row">
                   <input className="t-input" placeholder="e.g. React.js" value={s.name} onChange={e => hskill(i, 'name', e.target.value)} />
@@ -178,24 +253,40 @@ const PortfolioGenerator = () => {
           {step === 4 && (
             <>
               <div className="t-card-title">Featured Projects</div>
+              <p style={{ color: 'rgba(232,232,240,.6)', fontSize: '.9rem', marginBottom: '1rem' }}>
+                Showcase your best work. Images will be embedded in the final HTML file.
+              </p>
               {userData.projects.map((p, i) => (
                 <div key={i} className="t-proj-block">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div className="t-group"><label className="t-label">Project Title</label><input className="t-input" value={p.title} onChange={e => hproj(i, 'title', e.target.value)} /></div>
-                    <div className="t-group"><label className="t-label">Live Link / GitHub</label><input className="t-input" value={p.githubLink} onChange={e => hproj(i, 'githubLink', e.target.value)} /></div>
+                    <div className="t-group">
+                      <label className="t-label">Project Title</label>
+                      <input className="t-input" placeholder="e.g. E-commerce Website" value={p.title} onChange={e => hproj(i, 'title', e.target.value)} />
+                    </div>
+                    <div className="t-group">
+                      <label className="t-label">Live Link / GitHub</label>
+                      <input className="t-input" placeholder="https://..." value={p.githubLink} onChange={e => hproj(i, 'githubLink', e.target.value)} />
+                    </div>
                   </div>
-                  <div className="t-group"><label className="t-label">Description</label><textarea className="t-textarea" rows={2} value={p.desc} onChange={e => hproj(i, 'desc', e.target.value)} /></div>
-                  <div className="t-group"><label className="t-label">Project Screenshot</label><input className="t-input" type="file" onChange={e => himg(e, null, i)} /></div>
+                  <div className="t-group">
+                    <label className="t-label">Description</label>
+                    <textarea className="t-textarea" rows={2} placeholder="Describe your project..." value={p.desc} onChange={e => hproj(i, 'desc', e.target.value)} />
+                  </div>
+                  <div className="t-group">
+                    <label className="t-label">Project Screenshot (JPG/PNG, max 5MB)</label>
+                    <input className="t-input" type="file" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" onChange={e => himg(e, null, i)} />
+                    {p.image && <small style={{ color: '#00e5c8', fontSize: '.75rem' }}>✓ {p.image.name}</small>}
+                  </div>
                 </div>
               ))}
               <button className="t-btn t-btn-outline t-btn-sm" style={{ width: 'auto' }}
                 onClick={() => setUserData(p => ({ ...p, projects: [...p.projects, { title: '', desc: '', githubLink: '', image: null }] }))}>
-                + Add Project
+                Add Project
               </button>
               <div className="t-flex-between t-mt2">
                 <button className="t-btn t-btn-outline" style={{ width: 'auto' }} onClick={() => setStep(3)}><FaArrowLeft /> Back</button>
                 <button className="t-btn t-btn-primary" style={{ width: 'auto' }} onClick={handleGenerate} disabled={loading}>
-                  {loading ? <><span className="t-spinner" /> Generating…</> : <><FaMagic /> Generate Portfolio</>}
+                  {loading ? <><span className="t-spinner" /> Generating…</> : <> Generate Portfolio</>}
                 </button>
               </div>
             </>
@@ -204,9 +295,6 @@ const PortfolioGenerator = () => {
           {step === 5 && (
             <div className="t-text-center" style={{ padding: '2rem 0' }}>
               <div className="t-result-big" style={{ marginBottom: '.5rem' }}>Your Portfolio is Ready</div>
-              <p style={{ color: 'var(--muted)', marginBottom: '2.5rem' }}>
-                You can now preview your site or download the source code.
-              </p>
               <div className="t-flex-center" style={{ gap: '1rem' }}>
                 <button className="t-btn t-btn-outline t-btn-lg" style={{ flex: 1, maxWidth: '220px' }} onClick={() => setShowPreview(true)}>
                   Live Preview
@@ -214,9 +302,11 @@ const PortfolioGenerator = () => {
                 <button className="t-btn t-btn-primary t-btn-lg" style={{ flex: 1, maxWidth: '220px' }}
                   onClick={() => {
                     const a = document.createElement('a');
-                    a.href = URL.createObjectURL(new Blob([generatedCode], { type: 'text/html' }));
+                    const blob = new Blob([generatedCode], { type: 'text/html;charset=utf-8' });
+                    a.href = URL.createObjectURL(blob);
                     a.download = `${userData.name.replace(/\s+/g, '_')}_Portfolio.html`;
                     a.click();
+                    URL.revokeObjectURL(a.href);
                   }}>
                     Download HTML
                 </button>
