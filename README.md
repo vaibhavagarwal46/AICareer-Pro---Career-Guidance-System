@@ -101,6 +101,11 @@ AICareer Pro offers tools for:
 - OpenPyXL
 - ReportLab
 
+### Create .env fil in backend and give Adzuna API Credentials
+- ADZUNA_APP_ID = xxxxxxxx
+- ADZUNA_APP_KEY = xxxxxxxxxxxxxxxxxxxxx
+- ADZUNA_LOCATION = in (You can set default loaction)
+
 
 ## Installation
 
