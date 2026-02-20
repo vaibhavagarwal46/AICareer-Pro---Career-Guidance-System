@@ -135,9 +135,9 @@ AICareer Pro offers tools for:
 
 ## Author
 
-Vaibhav Agarwal  
-GitHub:- https://github.com/vaibahvagarwal46 
-LinkedIn:- https://linkedin.com/in/vaibhavagarwal46     
+- Vaibhav Agarwal  
+- GitHub:- https://github.com/vaibahvagarwal46 
+- LinkedIn:- https://linkedin.com/in/vaibhavagarwal46     
 
 
 
