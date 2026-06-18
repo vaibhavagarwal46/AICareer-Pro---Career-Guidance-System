@@ -106,6 +106,24 @@ AICareer Pro offers tools for:
 - ADZUNA_APP_KEY = xxxxxxxxxxxxxxxxxxxxx
 - ADZUNA_LOCATION = in (You can set default loaction)
 
+# Ollama Setup Guide for Mock Interview Feature
+
+The Mock Interview feature uses **Ollama with Llama3 LLM** for intelligent scoring instead of static mock data.
+
+## Prerequisites
+
+### Step 1: Download and Install Ollama
+1. Visit **https://ollama.ai** or **https://ollama.com**
+2. Download the Windows installer
+3. Run the installer and follow the setup wizard
+4. Restart your computer
+
+### Step 2: Pull the Llama3 Model
+After installation, open PowerShell and run:
+
+ollama pull llama3
+
+### Step 3: Keep Ollama Running while running this project
 
 ## Installation
 
@@ -143,7 +161,3 @@ AICareer Pro offers tools for:
 - Vaibhav Agarwal  
 - GitHub:- https://github.com/vaibahvagarwal46 
 - LinkedIn:- https://linkedin.com/in/vaibhavagarwal46     
-
-
-
-
